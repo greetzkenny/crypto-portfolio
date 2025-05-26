@@ -11,6 +11,10 @@ const CACHE_KEY_COINS = 'cached_coins';
 const CACHE_KEY_TIMESTAMP = 'cached_coins_timestamp';
 const MAX_CACHE_AGE = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
+// Add these variables at the top
+let portfolioChart = null;
+let currentTimeRange = '24h';
+
 // Initialize dark mode and locale from localStorage
 if (localStorage.getItem('darkMode') === 'true') {
     document.documentElement.classList.add('dark');
@@ -120,6 +124,13 @@ function toggleDarkMode() {
     const html = document.documentElement;
     html.classList.toggle('dark');
     localStorage.setItem('darkMode', html.classList.contains('dark'));
+    
+    // Recreate chart with new theme
+    if (portfolioChart) {
+        portfolioChart.destroy();
+    }
+    initializeChart();
+    loadPortfolioHistory();
 }
 
 function logout() {
@@ -130,10 +141,18 @@ function logout() {
 }
 
 function showPortfolio() {
+    // Initialize chart
+    initializeChart();
+    
     // Show initial loading state
     loadPortfolio();
+    
+    // Load portfolio history
+    loadPortfolioHistory();
+    
     // Immediately try to load coins
     loadTopCoins();
+    
     // Start the update interval
     startPriceUpdates();
 }
@@ -226,8 +245,11 @@ function startPriceUpdates() {
     if (priceUpdateInterval) {
         clearInterval(priceUpdateInterval);
     }
-    // Update every 30 seconds instead of 5
-    priceUpdateInterval = setInterval(loadTopCoins, MIN_UPDATE_INTERVAL);
+    // Update every 30 seconds
+    priceUpdateInterval = setInterval(() => {
+        loadTopCoins();
+        loadPortfolioHistory();
+    }, MIN_UPDATE_INTERVAL);
 }
 
 function formatNumber(value, decimals = 2) {
@@ -426,4 +448,121 @@ async function confirmRemove() {
 
 function toggleMenu() {
     document.getElementById('menuDropdown').classList.toggle('hidden');
+}
+
+// Add these functions for chart handling
+function initializeChart() {
+    const ctx = document.getElementById('portfolioChart').getContext('2d');
+    const isDark = document.documentElement.classList.contains('dark');
+    
+    portfolioChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Portfolio Value',
+                data: [],
+                borderColor: '#3B82F6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `$${formatNumber(context.raw)}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        color: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
+                    },
+                    ticks: {
+                        color: isDark ? '#9CA3AF' : '#4B5563'
+                    }
+                },
+                y: {
+                    grid: {
+                        color: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
+                    },
+                    ticks: {
+                        color: isDark ? '#9CA3AF' : '#4B5563',
+                        callback: function(value) {
+                            return '$' + formatNumber(value);
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+async function loadPortfolioHistory() {
+    try {
+        const response = await fetch(`http://localhost:8090/api/portfolio/history/${currentUser.userId}?timeRange=${currentTimeRange}`);
+        const snapshots = await response.json();
+        
+        if (snapshots.length === 0) return;
+
+        const labels = snapshots.map(s => {
+            const date = new Date(s.timestamp);
+            switch(currentTimeRange) {
+                case '1h':
+                    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                case '24h':
+                    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                case '7d':
+                    return date.toLocaleDateString([], { weekday: 'short' });
+                case '30d':
+                case '90d':
+                    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                default:
+                    return date.toLocaleString();
+            }
+        });
+        
+        const values = snapshots.map(s => s.totalValue);
+        
+        portfolioChart.data.labels = labels;
+        portfolioChart.data.datasets[0].data = values;
+        portfolioChart.update();
+        
+        // Update the total value and change percentage
+        const latestValue = values[values.length - 1];
+        const earliestValue = values[0];
+        const changePercent = ((latestValue - earliestValue) / earliestValue) * 100;
+        
+        document.getElementById('totalPortfolioValue').textContent = `$${formatNumber(latestValue)}`;
+        const changeElement = document.getElementById('totalPortfolioChange');
+        changeElement.textContent = `${changePercent >= 0 ? '+' : ''}${formatNumber(changePercent)}%`;
+        changeElement.className = `text-sm ${changePercent >= 0 ? 'text-green-500' : 'text-red-500'}`;
+    } catch (error) {
+        console.error('Error loading portfolio history:', error);
+    }
+}
+
+function changeTimeRange(range) {
+    // Update active button
+    document.querySelectorAll('.time-range-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelector(`button[onclick="changeTimeRange('${range}')"]`).classList.add('active');
+    
+    currentTimeRange = range;
+    loadPortfolioHistory();
 } 
