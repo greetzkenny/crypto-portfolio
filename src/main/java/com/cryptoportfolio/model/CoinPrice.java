@@ -14,6 +14,9 @@ public class CoinPrice {
     @JsonProperty("current_price")
     private BigDecimal currentPrice;
     
+    @JsonProperty("price_change_percentage_1h_in_currency")
+    private BigDecimal priceChangePercentage1h;
+    
     @JsonProperty("price_change_percentage_24h")
     private BigDecimal priceChangePercentage24h;
     
