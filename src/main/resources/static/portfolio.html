@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cryptoboard</title>
+    <title>Portfolio - Cryptoboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -19,7 +19,7 @@
                 <div class="flex items-center">
                     <a href="/" class="text-2xl font-bold dark:text-white">Cryptoboard</a>
                 </div>
-                <div class="flex items-center space-x-4">
+                <div class="flex items-center">
                     <div class="relative">
                         <button onclick="toggleMenu()" class="text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white p-2">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -27,8 +27,8 @@
                             </svg>
                         </button>
                         <div id="menuDropdown" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-sm shadow-lg py-1 z-50">
-                            <a href="/portfolio" class="block px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
-                                Portfolio
+                            <a href="/" class="block px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                Dashboard
                             </a>
                             <hr class="my-1 border-gray-200 dark:border-gray-700">
                             <button onclick="logout()" class="w-full text-left px-4 py-2 text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700">
@@ -79,36 +79,8 @@
 
         <!-- Main Content -->
         <div class="flex-1 p-8">
-            <!-- Login Form -->
-            <div id="loginForm" class="max-w-md mx-auto bg-white dark:bg-gray-800 rounded-sm shadow-md p-6">
-                <h2 class="text-2xl font-bold mb-4 dark:text-white">Login</h2>
-                <form onsubmit="login(event)" class="space-y-4">
-                    <input type="text" id="username" placeholder="Username" class="w-full p-2 border rounded-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                    <input type="password" id="password" placeholder="Password" class="w-full p-2 border rounded-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                    <button type="submit" class="w-full bg-blue-500 text-white p-2 rounded-sm hover:bg-blue-600">Login</button>
-                </form>
-                <p class="mt-4 text-center dark:text-gray-300">
-                    Don't have an account? 
-                    <a href="#" onclick="toggleForms()" class="text-blue-500 hover:text-blue-600">Register</a>
-                </p>
-            </div>
-
-            <!-- Register Form -->
-            <div id="registerForm" class="hidden max-w-md mx-auto bg-white dark:bg-gray-800 rounded-sm shadow-md p-6">
-                <h2 class="text-2xl font-bold mb-4 dark:text-white">Register</h2>
-                <form onsubmit="register(event)" class="space-y-4">
-                    <input type="text" id="regUsername" placeholder="Username" class="w-full p-2 border rounded-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                    <input type="password" id="regPassword" placeholder="Password" class="w-full p-2 border rounded-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                    <button type="submit" class="w-full bg-green-500 text-white p-2 rounded-sm hover:bg-green-600">Register</button>
-                </form>
-                <p class="mt-4 text-center dark:text-gray-300">
-                    Already have an account? 
-                    <a href="#" onclick="toggleForms()" class="text-blue-500 hover:text-blue-600">Login</a>
-                </p>
-            </div>
-
-            <!-- Dashboard View -->
-            <div id="dashboardView" class="hidden">
+            <!-- Portfolio View -->
+            <div id="portfolioView">
                 <div class="bg-white dark:bg-gray-800 rounded-sm shadow-md p-6">
                     <div class="overflow-x-auto">
                         <table class="w-full">
@@ -132,6 +104,12 @@
                                     <th class="pb-4 dark:text-gray-300 cursor-pointer select-none" data-sort="24h">
                                         <div class="flex items-center gap-1 justify-end">
                                             24h Change
+                                            <span class="sort-arrow text-gray-400">↓</span>
+                                        </div>
+                                    </th>
+                                    <th class="pb-4 dark:text-gray-300 cursor-pointer select-none" data-sort="holdings">
+                                        <div class="flex items-center gap-1 justify-end">
+                                            My Holdings
                                             <span class="sort-arrow text-gray-400">↓</span>
                                         </div>
                                     </th>
@@ -177,6 +155,6 @@
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <script src="portfolio.js"></script>
 </body>
 </html> 
