@@ -81,6 +81,21 @@
         <div class="flex-1 p-8">
             <!-- Portfolio View -->
             <div id="portfolioView">
+                <!-- Total Portfolio Value Panel -->
+                <div class="bg-white dark:bg-gray-800 rounded-sm shadow-md p-6 mb-6">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h2 class="text-xl font-semibold dark:text-white">Total Portfolio Value</h2>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Updated in real-time</p>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-3xl font-bold dark:text-white" id="totalPortfolioValue">$0.00</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400" id="totalPortfolioChange">+0.00%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Holdings Table -->
                 <div class="bg-white dark:bg-gray-800 rounded-sm shadow-md p-6">
                     <div class="overflow-x-auto">
                         <table class="w-full">

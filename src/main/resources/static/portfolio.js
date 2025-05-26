@@ -6,6 +6,11 @@ let lastPriceUpdate = 0;
 const MIN_UPDATE_INTERVAL = 30000; // 30 seconds minimum between updates
 let currentSort = { column: 'market_cap', direction: 'desc' }; // Default sort by market cap
 
+// Add these constants at the top of the file
+const CACHE_KEY_COINS = 'cached_coins';
+const CACHE_KEY_TIMESTAMP = 'cached_coins_timestamp';
+const MAX_CACHE_AGE = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
 // Initialize dark mode and locale from localStorage
 if (localStorage.getItem('darkMode') === 'true') {
     document.documentElement.classList.add('dark');
@@ -133,6 +138,28 @@ function showPortfolio() {
     startPriceUpdates();
 }
 
+// Add these functions for cache management
+function saveCoinDataToCache(coins) {
+    localStorage.setItem(CACHE_KEY_COINS, JSON.stringify(coins));
+    localStorage.setItem(CACHE_KEY_TIMESTAMP, Date.now().toString());
+}
+
+function getCachedCoinData() {
+    const cachedData = localStorage.getItem(CACHE_KEY_COINS);
+    const timestamp = parseInt(localStorage.getItem(CACHE_KEY_TIMESTAMP) || '0');
+    
+    if (!cachedData) return null;
+    
+    // Check if cache is too old
+    if (Date.now() - timestamp > MAX_CACHE_AGE) {
+        localStorage.removeItem(CACHE_KEY_COINS);
+        localStorage.removeItem(CACHE_KEY_TIMESTAMP);
+        return null;
+    }
+    
+    return JSON.parse(cachedData);
+}
+
 async function loadTopCoins() {
     try {
         // Check if enough time has passed since the last update
@@ -148,23 +175,51 @@ async function loadTopCoins() {
         const data = await response.json();
         topCoins = data;
         lastPriceUpdate = now;
-        updateLastUpdatedTime();
+        
+        // Save successful response to cache
+        saveCoinDataToCache(data);
+        
+        updateLastUpdatedTime(false);
         await loadPortfolio();
     } catch (error) {
         console.error('Error loading top coins:', error);
-        // Don't show alert to avoid disrupting UX
-        // Only update the UI if we have previous data
-        if (topCoins.length > 0) {
+        
+        // Try to load from cache
+        const cachedData = getCachedCoinData();
+        if (cachedData) {
+            console.log('Using cached coin data');
+            topCoins = cachedData;
+            updateLastUpdatedTime(true);
             await loadPortfolio();
+        } else if (topCoins.length === 0) {
+            // If no cache and no current data, show error in the table
+            const tableBody = document.getElementById('cryptoTableBody');
+            if (tableBody) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="py-4 text-center text-gray-500 dark:text-gray-400">
+                            Unable to load cryptocurrency data. Please try again later.
+                        </td>
+                    </tr>
+                `;
+            }
         }
     }
 }
 
-function updateLastUpdatedTime() {
+// Modify updateLastUpdatedTime to show cache status
+function updateLastUpdatedTime(isFromCache) {
     const now = new Date();
     const timeString = now.toLocaleTimeString();
     const dateString = now.toLocaleDateString();
-    document.getElementById('lastUpdated').textContent = `Last updated: ${dateString} ${timeString}`;
+    const cacheIndicator = isFromCache ? ' (Cached)' : '';
+    const element = document.getElementById('lastUpdated');
+    if (element) {
+        element.textContent = `Last updated: ${dateString} ${timeString}${cacheIndicator}`;
+        element.className = isFromCache ? 
+            'text-xs text-yellow-600 dark:text-yellow-400 italic text-center' :
+            'text-xs text-gray-500 dark:text-gray-400 italic text-center';
+    }
 }
 
 function startPriceUpdates() {
@@ -200,29 +255,46 @@ function displayCryptoTable(holdings) {
 
     const sortedCoins = sortData(holdings);
     
+    if (sortedCoins.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="7" class="py-4 text-center text-gray-500 dark:text-gray-400">
+                    No cryptocurrency data available.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
     let totalValue = 0;
+    let previousTotalValue = 0;
     const rows = sortedCoins.map((coin, index) => {
         const holding = holdings[coin.symbol.toUpperCase()] || 0;
-        const holdingValue = holding * coin.current_price;
+        const holdingValue = holding * (coin.current_price || 0);
+        const previousValue = holding * ((coin.current_price || 0) / (1 + ((coin.price_change_percentage_24h || 0) / 100)));
         totalValue += holdingValue;
+        previousTotalValue += previousValue;
 
         return `
             <tr class="border-b dark:border-gray-700">
                 <td class="py-2">${index + 1}</td>
                 <td class="py-2">
                     <div class="flex items-center gap-2">
-                        <img src="${coin.image}" alt="${coin.name}" class="w-6 h-6">
+                        <img src="${coin.image || '/images/placeholder-coin.png'}" 
+                             alt="${coin.name}" 
+                             class="w-6 h-6"
+                             onerror="this.src='/images/placeholder-coin.png'">
                         <span>${coin.name}</span>
                         <span class="text-gray-500 dark:text-gray-400">${coin.symbol.toUpperCase()}</span>
                     </div>
                 </td>
-                <td class="py-2">$${formatNumber(coin.current_price)}</td>
-                <td class="py-2">$${formatNumber(coin.market_cap, 0)}</td>
-                <td class="py-2 ${coin.price_change_percentage_1h_in_currency >= 0 ? 'text-green-500' : 'text-red-500'} text-right">
+                <td class="py-2">$${formatNumber(coin.current_price || 0)}</td>
+                <td class="py-2">$${formatNumber(coin.market_cap || 0, 0)}</td>
+                <td class="py-2 ${(coin.price_change_percentage_1h_in_currency || 0) >= 0 ? 'text-green-500' : 'text-red-500'} text-right">
                     ${formatNumber(coin.price_change_percentage_1h_in_currency || 0)}%
                 </td>
-                <td class="py-2 ${coin.price_change_percentage_24h >= 0 ? 'text-green-500' : 'text-red-500'} text-right">
-                    ${formatNumber(coin.price_change_percentage_24h)}%
+                <td class="py-2 ${(coin.price_change_percentage_24h || 0) >= 0 ? 'text-green-500' : 'text-red-500'} text-right">
+                    ${formatNumber(coin.price_change_percentage_24h || 0)}%
                 </td>
                 <td class="py-2 text-right">
                     <div class="flex flex-col gap-0.5">
@@ -247,6 +319,21 @@ function displayCryptoTable(holdings) {
     }).join('');
 
     tableBody.innerHTML = rows;
+
+    // Update total portfolio value
+    const totalPortfolioValue = document.getElementById('totalPortfolioValue');
+    const totalPortfolioChange = document.getElementById('totalPortfolioChange');
+    
+    if (totalPortfolioValue) {
+        totalPortfolioValue.textContent = `$${formatNumber(totalValue)}`;
+    }
+    
+    if (totalPortfolioChange) {
+        const percentageChange = totalValue > 0 ? ((totalValue - previousTotalValue) / previousTotalValue) * 100 : 0;
+        const changeClass = percentageChange >= 0 ? 'text-green-500' : 'text-red-500';
+        totalPortfolioChange.className = `text-sm ${changeClass} dark:${changeClass}`;
+        totalPortfolioChange.textContent = `${percentageChange >= 0 ? '+' : ''}${formatNumber(percentageChange)}%`;
+    }
 }
 
 function showAddDialog(symbol) {
