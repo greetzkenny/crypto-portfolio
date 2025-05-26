@@ -1,6 +1,5 @@
 let currentUser = null;
 let topCoins = [];
-let selectedCoin = null;
 let priceUpdateInterval = null;
 let lastPriceUpdate = 0;
 const MIN_UPDATE_INTERVAL = 30000; // 30 seconds minimum between updates
@@ -18,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const savedUser = localStorage.getItem('currentUser');
     if (savedUser) {
         currentUser = JSON.parse(savedUser);
-        showPortfolio();
+        showDashboard();
     }
 
     // Set up locale selector
@@ -28,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentLocale = e.target.value;
         localStorage.setItem('locale', currentLocale);
         if (topCoins.length > 0) {
-            loadPortfolio();
+            displayCryptoTable();
         }
     });
 
@@ -48,7 +47,7 @@ function setupSortHandlers() {
                 currentSort.direction = 'desc';
             }
             if (topCoins.length > 0) {
-                loadPortfolio();
+                displayCryptoTable();
             }
             updateSortIndicators();
         });
@@ -73,7 +72,7 @@ function updateSortIndicators() {
     });
 }
 
-function sortData(holdings) {
+function sortData() {
     const sortedCoins = [...topCoins];
     sortedCoins.sort((a, b) => {
         let aValue, bValue;
@@ -90,10 +89,6 @@ function sortData(holdings) {
             case '24h':
                 aValue = a.price_change_percentage_24h || 0;
                 bValue = b.price_change_percentage_24h || 0;
-                break;
-            case 'holdings':
-                aValue = (holdings[a.symbol.toUpperCase()] || 0) * a.current_price;
-                bValue = (holdings[b.symbol.toUpperCase()] || 0) * b.current_price;
                 break;
             default:
                 return 0;
@@ -165,7 +160,7 @@ async function login(event) {
             currentUser = data;
             // Save user data to localStorage
             localStorage.setItem('currentUser', JSON.stringify(currentUser));
-            showPortfolio();
+            showDashboard();
         } else {
             const error = await response.text();
             alert(error);
@@ -180,20 +175,18 @@ function logout() {
     // Clear user data from localStorage
     localStorage.removeItem('currentUser');
     clearInterval(priceUpdateInterval);
-    document.getElementById('portfolioView').classList.add('hidden');
+    document.getElementById('dashboardView').classList.add('hidden');
     document.getElementById('loginForm').classList.remove('hidden');
     document.getElementById('username').value = '';
     document.getElementById('password').value = '';
 }
 
-async function showPortfolio() {
+async function showDashboard() {
     document.getElementById('loginForm').classList.add('hidden');
     document.getElementById('registerForm').classList.add('hidden');
-    document.getElementById('portfolioView').classList.remove('hidden');
+    document.getElementById('dashboardView').classList.remove('hidden');
     
     // Show initial loading state
-    const portfolio = await loadPortfolio();
-    // Immediately try to load coins
     await loadTopCoins();
     // Start the update interval
     startPriceUpdates();
@@ -215,13 +208,13 @@ async function loadTopCoins() {
         topCoins = data;
         lastPriceUpdate = now;
         updateLastUpdatedTime();
-        await loadPortfolio();
+        displayCryptoTable();
     } catch (error) {
         console.error('Error loading top coins:', error);
         // Don't show alert to avoid disrupting UX
         // Only update the UI if we have previous data
         if (topCoins.length > 0) {
-            await loadPortfolio();
+            displayCryptoTable();
         }
     }
 }
@@ -241,186 +234,47 @@ function startPriceUpdates() {
     priceUpdateInterval = setInterval(loadTopCoins, MIN_UPDATE_INTERVAL);
 }
 
-async function loadPortfolio() {
-    try {
-        const response = await fetch(`http://localhost:8090/api/portfolio/${currentUser.userId}`);
-        const portfolio = await response.json();
-        displayCryptoTable(portfolio.holdings || {});
-        return portfolio;
-    } catch (error) {
-        console.error('Error loading portfolio:', error);
-        displayCryptoTable({});  // Show empty state
-        return { holdings: {} };
-    }
-}
-
 function formatNumber(value, decimals = 2) {
-    return value.toLocaleString(currentLocale, {
+    return new Intl.NumberFormat(currentLocale, {
         minimumFractionDigits: decimals,
         maximumFractionDigits: decimals
-    });
+    }).format(value);
 }
 
-function displayCryptoTable(holdings) {
-    const tbody = document.getElementById('cryptoTableBody');
-    tbody.innerHTML = '';
+function displayCryptoTable() {
+    const tableBody = document.getElementById('cryptoTableBody');
+    if (!tableBody) return;
 
-    if (topCoins.length === 0) {
-        const loadingRow = document.createElement('tr');
-        loadingRow.innerHTML = `
-            <td colspan="7" class="py-4 text-center">
-                <div class="flex items-center justify-center gap-2">
-                    <svg class="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Loading cryptocurrencies...
-                </div>
-            </td>
-        `;
-        tbody.appendChild(loadingRow);
-        return;
-    }
-
-    const sortedCoins = sortData(holdings);
-    sortedCoins.forEach((coin, index) => {
-        const holding = holdings[coin.symbol.toUpperCase()] || 0;
-        const value = holding * coin.current_price;
-        
-        const row = document.createElement('tr');
-        row.className = index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : 'bg-white dark:bg-gray-900';
-        row.innerHTML = `
-            <td class="py-4 px-2">${index + 1}</td>
-            <td class="py-4 px-2">
-                <div class="flex items-center gap-2">
-                    <img src="${coin.image}" alt="${coin.name}" class="w-6 h-6">
-                    <span>${coin.name} (${coin.symbol.toUpperCase()})</span>
-                </div>
-            </td>
-            <td class="py-4 px-2">$${formatNumber(coin.current_price)}</td>
-            <td class="py-4 px-2">$${formatNumber(coin.market_cap, 0)}</td>
-            <td class="py-4 px-2 ${coin.price_change_percentage_1h_in_currency >= 0 ? 'text-green-500' : 'text-red-500'}">
-                ${coin.price_change_percentage_1h_in_currency ? formatNumber(coin.price_change_percentage_1h_in_currency) : '0.00'}%
-            </td>
-            <td class="py-4 px-2 ${coin.price_change_percentage_24h >= 0 ? 'text-green-500' : 'text-red-500'}">
-                ${formatNumber(coin.price_change_percentage_24h)}%
-            </td>
-            <td class="py-4 px-2">
-                <div class="flex items-center gap-4">
-                    <div class="flex flex-col gap-1">
-                        <button onclick="showAddDialog('${coin.symbol}')" 
-                                class="text-green-500 hover:text-green-700 text-lg font-bold">+</button>
-                        <button onclick="showRemoveDialog('${coin.symbol}')" 
-                                class="text-red-500 hover:text-red-700 text-lg font-bold"
-                                ${holding <= 0 ? 'disabled' : ''}>−</button>
-                    </div>
-                    <div class="flex flex-col">
-                        <span>${formatNumber(holding)} ${coin.symbol.toUpperCase()}</span>
-                        <span class="text-gray-500 dark:text-gray-400">$${formatNumber(value)}</span>
-                    </div>
-                </div>
-            </td>`;
-        tbody.appendChild(row);
-    });
+    const sortedCoins = sortData();
     
-    updateSortIndicators();
-}
+    const rows = sortedCoins.map((coin, index) => {
+        return `
+            <tr class="border-b dark:border-gray-700">
+                <td class="py-4">${index + 1}</td>
+                <td class="py-4">
+                    <div class="flex items-center gap-2">
+                        <img src="${coin.image}" alt="${coin.name}" class="w-6 h-6">
+                        <span>${coin.name}</span>
+                        <span class="text-gray-500 dark:text-gray-400">${coin.symbol.toUpperCase()}</span>
+                    </div>
+                </td>
+                <td class="py-4">$${formatNumber(coin.current_price)}</td>
+                <td class="py-4">$${formatNumber(coin.market_cap, 0)}</td>
+                <td class="py-4 ${coin.price_change_percentage_1h_in_currency >= 0 ? 'text-green-500' : 'text-red-500'} text-right">
+                    ${formatNumber(coin.price_change_percentage_1h_in_currency || 0)}%
+                </td>
+                <td class="py-4 ${coin.price_change_percentage_24h >= 0 ? 'text-green-500' : 'text-red-500'} text-right">
+                    ${formatNumber(coin.price_change_percentage_24h)}%
+                </td>
+            </tr>
+        `;
+    }).join('');
 
-function showAddDialog(symbol) {
-    selectedCoin = topCoins.find(coin => coin.symbol.toLowerCase() === symbol.toLowerCase());
-    document.getElementById('addAmount').value = '';
-    document.getElementById('addPrice').value = selectedCoin.current_price;
-    document.getElementById('addTokenDialog').classList.remove('hidden');
-}
-
-function closeAddDialog() {
-    document.getElementById('addTokenDialog').classList.add('hidden');
-    selectedCoin = null;
-}
-
-function showRemoveDialog(symbol) {
-    selectedCoin = topCoins.find(coin => coin.symbol.toLowerCase() === symbol.toLowerCase());
-    document.getElementById('removeAmount').value = '';
-    document.getElementById('removeTokenDialog').classList.remove('hidden');
-}
-
-function closeRemoveDialog() {
-    document.getElementById('removeTokenDialog').classList.add('hidden');
-    selectedCoin = null;
-}
-
-async function confirmAdd() {
-    const amount = parseFloat(document.getElementById('addAmount').value);
-    if (!amount || amount <= 0) {
-        alert('Please enter a valid amount');
-        return;
-    }
-
-    try {
-        const response = await fetch(`http://localhost:8090/api/portfolio/${currentUser.userId}`);
-        const portfolio = await response.json();
-        
-        const holdings = portfolio.holdings || {};
-        const symbol = selectedCoin.symbol.toUpperCase();
-        holdings[symbol] = (holdings[symbol] || 0) + amount;
-
-        await fetch(`http://localhost:8090/api/portfolio/${currentUser.userId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ ...portfolio, holdings }),
-        });
-
-        closeAddDialog();
-        await loadPortfolio();
-    } catch (error) {
-        alert('Error adding holding');
-    }
-}
-
-async function confirmRemove() {
-    const amount = parseFloat(document.getElementById('removeAmount').value);
-    if (!amount || amount <= 0) {
-        alert('Please enter a valid amount');
-        return;
-    }
-
-    try {
-        const response = await fetch(`http://localhost:8090/api/portfolio/${currentUser.userId}`);
-        const portfolio = await response.json();
-        
-        const holdings = portfolio.holdings || {};
-        const symbol = selectedCoin.symbol.toUpperCase();
-        
-        if (!holdings[symbol] || holdings[symbol] < amount) {
-            alert('Insufficient balance');
-            return;
-        }
-
-        holdings[symbol] -= amount;
-        if (holdings[symbol] <= 0) {
-            delete holdings[symbol];
-        }
-
-        await fetch(`http://localhost:8090/api/portfolio/${currentUser.userId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ ...portfolio, holdings }),
-        });
-
-        closeRemoveDialog();
-        await loadPortfolio();
-    } catch (error) {
-        alert('Error removing holding');
-    }
+    tableBody.innerHTML = rows;
 }
 
 function toggleMenu() {
-    const menu = document.getElementById('menuDropdown');
-    menu.classList.toggle('hidden');
+    document.getElementById('menuDropdown').classList.toggle('hidden');
 }
 
 // Close menu when clicking outside

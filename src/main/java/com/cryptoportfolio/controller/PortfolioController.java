@@ -26,4 +26,61 @@ public class PortfolioController {
         portfolio.setUserId(userId);
         return ResponseEntity.ok(portfolioRepository.save(portfolio));
     }
+
+    @PostMapping("/{userId}/add")
+    public ResponseEntity<?> addHolding(@PathVariable String userId, @RequestBody HoldingRequest request) {
+        Portfolio portfolio = portfolioRepository.findByUserId(userId)
+                .orElse(new Portfolio(userId));
+
+        String symbol = request.getSymbol().toUpperCase();
+        double currentAmount = portfolio.getHoldings().getOrDefault(symbol, 0.0);
+        portfolio.getHoldings().put(symbol, currentAmount + request.getAmount());
+
+        portfolioRepository.save(portfolio);
+        return ResponseEntity.ok(portfolio);
+    }
+
+    @PostMapping("/{userId}/remove")
+    public ResponseEntity<?> removeHolding(@PathVariable String userId, @RequestBody HoldingRequest request) {
+        Portfolio portfolio = portfolioRepository.findByUserId(userId)
+                .orElse(new Portfolio(userId));
+
+        String symbol = request.getSymbol().toUpperCase();
+        double currentAmount = portfolio.getHoldings().getOrDefault(symbol, 0.0);
+        double newAmount = currentAmount - request.getAmount();
+
+        if (newAmount < 0) {
+            return ResponseEntity.badRequest().body("Insufficient holdings");
+        }
+
+        if (newAmount == 0) {
+            portfolio.getHoldings().remove(symbol);
+        } else {
+            portfolio.getHoldings().put(symbol, newAmount);
+        }
+
+        portfolioRepository.save(portfolio);
+        return ResponseEntity.ok(portfolio);
+    }
+
+    private static class HoldingRequest {
+        private String symbol;
+        private double amount;
+
+        public String getSymbol() {
+            return symbol;
+        }
+
+        public void setSymbol(String symbol) {
+            this.symbol = symbol;
+        }
+
+        public double getAmount() {
+            return amount;
+        }
+
+        public void setAmount(double amount) {
+            this.amount = amount;
+        }
+    }
 } 
