@@ -4,11 +4,14 @@ let selectedCoin = null;
 let priceUpdateInterval = null;
 let lastPriceUpdate = 0;
 const MIN_UPDATE_INTERVAL = 30000; // 30 seconds minimum between updates
+let currentSort = { column: 'market_cap', direction: 'desc' }; // Default sort by market cap
 
-// Initialize dark mode from localStorage
+// Initialize dark mode and locale from localStorage
 if (localStorage.getItem('darkMode') === 'true') {
     document.documentElement.classList.add('dark');
 }
+
+let currentLocale = localStorage.getItem('locale') || 'en-US';
 
 // Check for existing session on page load
 document.addEventListener('DOMContentLoaded', () => {
@@ -17,7 +20,94 @@ document.addEventListener('DOMContentLoaded', () => {
         currentUser = JSON.parse(savedUser);
         showPortfolio();
     }
+
+    // Set up locale selector
+    const localeSelector = document.getElementById('localeSelector');
+    localeSelector.value = currentLocale;
+    localeSelector.addEventListener('change', (e) => {
+        currentLocale = e.target.value;
+        localStorage.setItem('locale', currentLocale);
+        if (topCoins.length > 0) {
+            loadPortfolio();
+        }
+    });
+
+    // Set up sorting click handlers
+    setupSortHandlers();
 });
+
+function setupSortHandlers() {
+    const headers = document.querySelectorAll('th[data-sort]');
+    headers.forEach(header => {
+        header.addEventListener('click', () => {
+            const column = header.dataset.sort;
+            if (currentSort.column === column) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.column = column;
+                currentSort.direction = 'desc';
+            }
+            if (topCoins.length > 0) {
+                loadPortfolio();
+            }
+            updateSortIndicators();
+        });
+    });
+}
+
+function updateSortIndicators() {
+    const headers = document.querySelectorAll('th[data-sort]');
+    headers.forEach(header => {
+        const arrow = header.querySelector('.sort-arrow');
+        if (arrow) {
+            if (header.dataset.sort === currentSort.column) {
+                arrow.textContent = currentSort.direction === 'asc' ? '↑' : '↓';
+                arrow.classList.remove('text-gray-400');
+                arrow.classList.add('text-gray-700', 'dark:text-gray-300');
+            } else {
+                arrow.textContent = '↓';
+                arrow.classList.remove('text-gray-700', 'dark:text-gray-300');
+                arrow.classList.add('text-gray-400');
+            }
+        }
+    });
+}
+
+function sortData(holdings) {
+    const sortedCoins = [...topCoins];
+    sortedCoins.sort((a, b) => {
+        let aValue, bValue;
+        
+        switch (currentSort.column) {
+            case 'market_cap':
+                aValue = a.market_cap;
+                bValue = b.market_cap;
+                break;
+            case '1h':
+                aValue = a.price_change_percentage_1h_in_currency || 0;
+                bValue = b.price_change_percentage_1h_in_currency || 0;
+                break;
+            case '24h':
+                aValue = a.price_change_percentage_24h || 0;
+                bValue = b.price_change_percentage_24h || 0;
+                break;
+            case 'holdings':
+                aValue = (holdings[a.symbol.toUpperCase()] || 0) * a.current_price;
+                bValue = (holdings[b.symbol.toUpperCase()] || 0) * b.current_price;
+                break;
+            default:
+                return 0;
+        }
+
+        if (currentSort.direction === 'asc') {
+            return aValue - bValue;
+        } else {
+            return bValue - aValue;
+        }
+    });
+
+    return sortedCoins;
+}
 
 function toggleDarkMode() {
     const html = document.documentElement;
@@ -117,13 +207,14 @@ async function loadTopCoins() {
             return;
         }
 
-        const response = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1&sparkline=false');
+        const response = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1&sparkline=false&price_change_percentage=1h');
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
         topCoins = data;
         lastPriceUpdate = now;
+        updateLastUpdatedTime();
         await loadPortfolio();
     } catch (error) {
         console.error('Error loading top coins:', error);
@@ -133,6 +224,13 @@ async function loadTopCoins() {
             await loadPortfolio();
         }
     }
+}
+
+function updateLastUpdatedTime() {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString();
+    const dateString = now.toLocaleDateString();
+    document.getElementById('lastUpdated').textContent = `Last updated: ${dateString} ${timeString}`;
 }
 
 function startPriceUpdates() {
@@ -156,6 +254,13 @@ async function loadPortfolio() {
     }
 }
 
+function formatNumber(value, decimals = 2) {
+    return value.toLocaleString(currentLocale, {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
+    });
+}
+
 function displayCryptoTable(holdings) {
     const tbody = document.getElementById('cryptoTableBody');
     tbody.innerHTML = '';
@@ -177,7 +282,8 @@ function displayCryptoTable(holdings) {
         return;
     }
 
-    topCoins.forEach((coin, index) => {
+    const sortedCoins = sortData(holdings);
+    sortedCoins.forEach((coin, index) => {
         const holding = holdings[coin.symbol.toUpperCase()] || 0;
         const value = holding * coin.current_price;
         
@@ -191,24 +297,33 @@ function displayCryptoTable(holdings) {
                     <span>${coin.name} (${coin.symbol.toUpperCase()})</span>
                 </div>
             </td>
-            <td class="py-4 px-2">$${coin.current_price.toLocaleString()}</td>
+            <td class="py-4 px-2">$${formatNumber(coin.current_price)}</td>
+            <td class="py-4 px-2">$${formatNumber(coin.market_cap, 0)}</td>
+            <td class="py-4 px-2 ${coin.price_change_percentage_1h_in_currency >= 0 ? 'text-green-500' : 'text-red-500'}">
+                ${coin.price_change_percentage_1h_in_currency ? formatNumber(coin.price_change_percentage_1h_in_currency) : '0.00'}%
+            </td>
             <td class="py-4 px-2 ${coin.price_change_percentage_24h >= 0 ? 'text-green-500' : 'text-red-500'}">
-                ${coin.price_change_percentage_24h.toFixed(2)}%
+                ${formatNumber(coin.price_change_percentage_24h)}%
             </td>
-            <td class="py-4 px-2">${holding.toLocaleString()}</td>
-            <td class="py-4 px-2">$${value.toLocaleString()}</td>
             <td class="py-4 px-2">
-                <div class="flex gap-2">
-                    <button onclick="showAddDialog('${coin.symbol}')" 
-                            class="text-green-500 hover:text-green-700">+</button>
-                    <button onclick="showRemoveDialog('${coin.symbol}')" 
-                            class="text-red-500 hover:text-red-700"
-                            ${holding <= 0 ? 'disabled' : ''}>−</button>
+                <div class="flex items-center gap-4">
+                    <div class="flex flex-col gap-1">
+                        <button onclick="showAddDialog('${coin.symbol}')" 
+                                class="text-green-500 hover:text-green-700 text-lg font-bold">+</button>
+                        <button onclick="showRemoveDialog('${coin.symbol}')" 
+                                class="text-red-500 hover:text-red-700 text-lg font-bold"
+                                ${holding <= 0 ? 'disabled' : ''}>−</button>
+                    </div>
+                    <div class="flex flex-col">
+                        <span>${formatNumber(holding)} ${coin.symbol.toUpperCase()}</span>
+                        <span class="text-gray-500 dark:text-gray-400">$${formatNumber(value)}</span>
+                    </div>
                 </div>
-            </td>
-        `;
+            </td>`;
         tbody.appendChild(row);
     });
+    
+    updateSortIndicators();
 }
 
 function showAddDialog(symbol) {
@@ -301,4 +416,19 @@ async function confirmRemove() {
     } catch (error) {
         alert('Error removing holding');
     }
-} 
+}
+
+function toggleMenu() {
+    const menu = document.getElementById('menuDropdown');
+    menu.classList.toggle('hidden');
+}
+
+// Close menu when clicking outside
+document.addEventListener('click', function(event) {
+    const menu = document.getElementById('menuDropdown');
+    const menuButton = event.target.closest('button');
+    
+    if (!menu.classList.contains('hidden') && !menuButton) {
+        menu.classList.add('hidden');
+    }
+}); 
