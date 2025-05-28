@@ -11,10 +11,6 @@ const CACHE_KEY_COINS = 'cached_coins';
 const CACHE_KEY_TIMESTAMP = 'cached_coins_timestamp';
 const MAX_CACHE_AGE = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
-// Add these variables at the top
-let portfolioChart = null;
-let currentTimeRange = '24h';
-
 // Initialize dark mode and locale from localStorage
 if (localStorage.getItem('darkMode') === 'true') {
     document.documentElement.classList.add('dark');
@@ -124,13 +120,6 @@ function toggleDarkMode() {
     const html = document.documentElement;
     html.classList.toggle('dark');
     localStorage.setItem('darkMode', html.classList.contains('dark'));
-    
-    // Recreate chart with new theme
-    if (portfolioChart) {
-        portfolioChart.destroy();
-    }
-    initializeChart();
-    loadPortfolioHistory();
 }
 
 function logout() {
@@ -141,14 +130,8 @@ function logout() {
 }
 
 function showPortfolio() {
-    // Initialize chart
-    initializeChart();
-    
     // Show initial loading state
     loadPortfolio();
-    
-    // Load portfolio history
-    loadPortfolioHistory();
     
     // Immediately try to load coins
     loadTopCoins();
@@ -198,58 +181,43 @@ async function loadTopCoins() {
         // Save successful response to cache
         saveCoinDataToCache(data);
         
+        // Update the display with fresh data
+        loadPortfolio();
         updateLastUpdatedTime(false);
-        await loadPortfolio();
     } catch (error) {
         console.error('Error loading top coins:', error);
         
-        // Try to load from cache
+        // Try to use cached data as fallback
         const cachedData = getCachedCoinData();
         if (cachedData) {
-            console.log('Using cached coin data');
+            console.log('Using cached coin data as fallback');
             topCoins = cachedData;
+            loadPortfolio();
             updateLastUpdatedTime(true);
-            await loadPortfolio();
-        } else if (topCoins.length === 0) {
-            // If no cache and no current data, show error in the table
-            const tableBody = document.getElementById('cryptoTableBody');
-            if (tableBody) {
-                tableBody.innerHTML = `
-                    <tr>
-                        <td colspan="7" class="py-4 text-center text-gray-500 dark:text-gray-400">
-                            Unable to load cryptocurrency data. Please try again later.
-                        </td>
-                    </tr>
-                `;
-            }
+        } else {
+            console.error('No cached data available');
         }
     }
 }
 
-// Modify updateLastUpdatedTime to show cache status
 function updateLastUpdatedTime(isFromCache) {
-    const now = new Date();
-    const timeString = now.toLocaleTimeString();
-    const dateString = now.toLocaleDateString();
-    const cacheIndicator = isFromCache ? ' (Cached)' : '';
-    const element = document.getElementById('lastUpdated');
-    if (element) {
-        element.textContent = `Last updated: ${dateString} ${timeString}${cacheIndicator}`;
-        element.className = isFromCache ? 
-            'text-xs text-yellow-600 dark:text-yellow-400 italic text-center' :
-            'text-xs text-gray-500 dark:text-gray-400 italic text-center';
+    const lastUpdated = document.getElementById('lastUpdated');
+    if (lastUpdated) {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString();
+        const cacheIndicator = isFromCache ? ' (cached)' : '';
+        lastUpdated.textContent = `Last updated: ${timeString}${cacheIndicator}`;
     }
 }
 
 function startPriceUpdates() {
+    // Clear any existing interval
     if (priceUpdateInterval) {
         clearInterval(priceUpdateInterval);
     }
-    // Update every 30 seconds
-    priceUpdateInterval = setInterval(() => {
-        loadTopCoins();
-        loadPortfolioHistory();
-    }, MIN_UPDATE_INTERVAL);
+    
+    // Set up new interval for price updates
+    priceUpdateInterval = setInterval(loadTopCoins, MIN_UPDATE_INTERVAL);
 }
 
 function formatNumber(value, decimals = 2) {
@@ -273,29 +241,25 @@ async function loadPortfolio() {
 
 function displayCryptoTable(holdings) {
     const tableBody = document.getElementById('cryptoTableBody');
-    if (!tableBody) return;
+    
+    if (topCoins.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-gray-500 dark:text-gray-400">Loading...</td></tr>';
+        return;
+    }
 
     const sortedCoins = sortData(holdings);
     
-    if (sortedCoins.length === 0) {
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="7" class="py-4 text-center text-gray-500 dark:text-gray-400">
-                    No cryptocurrency data available.
-                </td>
-            </tr>
-        `;
-        return;
-    }
-    
     let totalValue = 0;
     let previousTotalValue = 0;
+
     const rows = sortedCoins.map((coin, index) => {
         const holding = holdings[coin.symbol.toUpperCase()] || 0;
-        const holdingValue = holding * (coin.current_price || 0);
-        const previousValue = holding * ((coin.current_price || 0) / (1 + ((coin.price_change_percentage_24h || 0) / 100)));
+        const holdingValue = holding * coin.current_price;
         totalValue += holdingValue;
-        previousTotalValue += previousValue;
+        
+        // Calculate previous value for percentage change (simplified)
+        const previousPrice = coin.current_price / (1 + (coin.price_change_percentage_24h || 0) / 100);
+        previousTotalValue += holding * previousPrice;
 
         return `
             <tr class="border-b dark:border-gray-700">
@@ -347,7 +311,7 @@ function displayCryptoTable(holdings) {
     const totalPortfolioChange = document.getElementById('totalPortfolioChange');
     
     if (totalPortfolioValue) {
-        totalPortfolioValue.textContent = `$${formatNumber(totalValue)}`;
+        totalPortfolioValue.textContent = `$${formatNumber(totalValue, 0)}`;
     }
     
     if (totalPortfolioChange) {
@@ -384,7 +348,7 @@ function closeRemoveDialog() {
 
 async function confirmAdd() {
     const amount = parseFloat(document.getElementById('addAmount').value);
-    if (isNaN(amount) || amount <= 0) {
+    if (!amount || amount <= 0) {
         alert('Please enter a valid amount');
         return;
     }
@@ -396,17 +360,16 @@ async function confirmAdd() {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                symbol: selectedCoin,
+                symbol: selectedCoin.toUpperCase(),
                 amount: amount
-            }),
+            })
         });
 
         if (response.ok) {
             closeAddDialog();
-            await loadPortfolio();
+            loadPortfolio();
         } else {
-            const error = await response.text();
-            alert(error);
+            alert('Error adding token');
         }
     } catch (error) {
         console.error('Error adding token:', error);
@@ -416,7 +379,7 @@ async function confirmAdd() {
 
 async function confirmRemove() {
     const amount = parseFloat(document.getElementById('removeAmount').value);
-    if (isNaN(amount) || amount <= 0) {
+    if (!amount || amount <= 0) {
         alert('Please enter a valid amount');
         return;
     }
@@ -428,17 +391,16 @@ async function confirmRemove() {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                symbol: selectedCoin,
+                symbol: selectedCoin.toUpperCase(),
                 amount: amount
-            }),
+            })
         });
 
         if (response.ok) {
             closeRemoveDialog();
-            await loadPortfolio();
+            loadPortfolio();
         } else {
-            const error = await response.text();
-            alert(error);
+            alert('Error removing token');
         }
     } catch (error) {
         console.error('Error removing token:', error);
@@ -447,122 +409,6 @@ async function confirmRemove() {
 }
 
 function toggleMenu() {
-    document.getElementById('menuDropdown').classList.toggle('hidden');
+    const menu = document.getElementById('menuDropdown');
+    menu.classList.toggle('hidden');
 }
-
-// Add these functions for chart handling
-function initializeChart() {
-    const ctx = document.getElementById('portfolioChart').getContext('2d');
-    const isDark = document.documentElement.classList.contains('dark');
-    
-    portfolioChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: [],
-            datasets: [{
-                label: 'Portfolio Value',
-                data: [],
-                borderColor: '#3B82F6',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                fill: true,
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                intersect: false,
-                mode: 'index'
-            },
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return `$${formatNumber(context.raw)}`;
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    grid: {
-                        color: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
-                    },
-                    ticks: {
-                        color: isDark ? '#9CA3AF' : '#4B5563'
-                    }
-                },
-                y: {
-                    grid: {
-                        color: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
-                    },
-                    ticks: {
-                        color: isDark ? '#9CA3AF' : '#4B5563',
-                        callback: function(value) {
-                            return '$' + formatNumber(value);
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
-
-async function loadPortfolioHistory() {
-    try {
-        const response = await fetch(`http://localhost:8090/api/portfolio/history/${currentUser.userId}?timeRange=${currentTimeRange}`);
-        const snapshots = await response.json();
-        
-        if (snapshots.length === 0) return;
-
-        const labels = snapshots.map(s => {
-            const date = new Date(s.timestamp);
-            switch(currentTimeRange) {
-                case '1h':
-                    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                case '24h':
-                    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                case '7d':
-                    return date.toLocaleDateString([], { weekday: 'short' });
-                case '30d':
-                case '90d':
-                    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-                default:
-                    return date.toLocaleString();
-            }
-        });
-        
-        const values = snapshots.map(s => s.totalValue);
-        
-        portfolioChart.data.labels = labels;
-        portfolioChart.data.datasets[0].data = values;
-        portfolioChart.update();
-        
-        // Update the total value and change percentage
-        const latestValue = values[values.length - 1];
-        const earliestValue = values[0];
-        const changePercent = ((latestValue - earliestValue) / earliestValue) * 100;
-        
-        document.getElementById('totalPortfolioValue').textContent = `$${formatNumber(latestValue)}`;
-        const changeElement = document.getElementById('totalPortfolioChange');
-        changeElement.textContent = `${changePercent >= 0 ? '+' : ''}${formatNumber(changePercent)}%`;
-        changeElement.className = `text-sm ${changePercent >= 0 ? 'text-green-500' : 'text-red-500'}`;
-    } catch (error) {
-        console.error('Error loading portfolio history:', error);
-    }
-}
-
-function changeTimeRange(range) {
-    // Update active button
-    document.querySelectorAll('.time-range-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    document.querySelector(`button[onclick="changeTimeRange('${range}')"]`).classList.add('active');
-    
-    currentTimeRange = range;
-    loadPortfolioHistory();
-} 
