@@ -347,7 +347,7 @@ function displayCryptoTable(holdings) {
     const totalPortfolioChange = document.getElementById('totalPortfolioChange');
     
     if (totalPortfolioValue) {
-        totalPortfolioValue.textContent = `$${formatNumber(totalValue)}`;
+        totalPortfolioValue.textContent = `$${formatNumber(totalValue, 0)}`;
     }
     
     if (totalPortfolioChange) {
@@ -547,7 +547,7 @@ async function loadPortfolioHistory() {
         const earliestValue = values[0];
         const changePercent = ((latestValue - earliestValue) / earliestValue) * 100;
         
-        document.getElementById('totalPortfolioValue').textContent = `$${formatNumber(latestValue)}`;
+    document.getElementById('totalPortfolioValue').textContent = `$${formatNumber(latestValue, 0)}`;
         const changeElement = document.getElementById('totalPortfolioChange');
         changeElement.textContent = `${changePercent >= 0 ? '+' : ''}${formatNumber(changePercent)}%`;
         changeElement.className = `text-sm ${changePercent >= 0 ? 'text-green-500' : 'text-red-500'}`;
@@ -560,9 +560,14 @@ function changeTimeRange(range) {
     // Update active button
     document.querySelectorAll('.time-range-btn').forEach(btn => {
         btn.classList.remove('active');
+        // Set text color to match Y-axis tick colors
+        const isDark = document.documentElement.classList.contains('dark');
+        btn.style.color = isDark ? '#9CA3AF' : '#4B5563';
     });
-    document.querySelector(`button[onclick="changeTimeRange('${range}')"]`).classList.add('active');
-    
+
+    const activeButton = document.querySelector(`button[onclick="changeTimeRange('${range}')"]`);
+    activeButton.classList.add('active');
+
     currentTimeRange = range;
     loadPortfolioHistory();
-} 
+}

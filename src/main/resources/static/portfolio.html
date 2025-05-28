@@ -185,16 +185,24 @@
         </div>
     </div>
 
-    <style>
-        .time-range-btn {
-            @apply bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 
-                   hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-200;
-        }
+<style>
+/* Updated time range button colors to match Y-axis tick colors */
+.time-range-btn {
+    @apply bg-gray-200 dark:bg-gray-700 text-[#4B5563] dark:text-[#9CA3AF]
+           hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-200;
+}
         .time-range-btn.active {
             @apply bg-blue-500 text-white hover:bg-blue-600;
         }
     </style>
 
-    <script src="portfolio.js"></script>
+<script>
+// Load custom styles to ensure they're not cached
+const link = document.createElement('link');
+link.rel = 'stylesheet';
+link.href = 'portfolio-custom.css';
+document.head.appendChild(link);
+</script>
+<script src="portfolio.js"></script>
 </body>
-</html> 
+</html>

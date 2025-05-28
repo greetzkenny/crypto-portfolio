@@ -1,0 +1,23 @@
+/* Updated time range button colors to match Y-axis tick colors */
+.time-range-btn {
+    background-color: #f7fafc; /* Tailwind bg-gray-200 */
+    background-color: var(--color-gray-700, #1f2937) dark;
+    color: #4b5563; /* Tailwind text-[#4B5563] */
+    color: #9ca3af dark; /* Tailwind dark:text-[#9CA3AF] */
+
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.time-range-btn:hover {
+    background-color: #e2e8f0; /* Tailwind hover:bg-gray-300 */
+    background-color: var(--color-gray-600, #4b5563) dark; /* Tailwind dark:hover:bg-gray-600 */
+}
+
+.time-range-btn.active {
+    background-color: #3b82f6; /* Tailwind bg-blue-500 */
+    color: white;
+}
+
+.time-range-btn.active:hover {
+    background-color: #2a76e0; /* Tailwind hover:bg-blue-600 */
+}

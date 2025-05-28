@@ -41,54 +41,74 @@ public class PortfolioSnapshotService {
         try {
             Map<String, Double> holdings = portfolio.getHoldings();
             List<String> coins = holdings.keySet().stream().toList();
-            
+
             // Get market data for all held coins
             coinGeckoService.getMarketData(coins, "usd")
                 .collectList()
                 .subscribe(prices -> {
-                    PortfolioSnapshot snapshot = new PortfolioSnapshot();
-                    snapshot.setUserId(portfolio.getUserId());
-                    snapshot.setTimestamp(Instant.now());
-                    
-                    Map<String, PortfolioSnapshot.CoinSnapshot> snapshotHoldings = new HashMap<>();
-                    AtomicReference<Double> totalValue = new AtomicReference<>(0.0);
+                    try {
+                        PortfolioSnapshot snapshot = new PortfolioSnapshot();
+                        snapshot.setUserId(portfolio.getUserId());
+                        snapshot.setTimestamp(Instant.now());
 
-                    prices.forEach(price -> {
-                        double amount = holdings.getOrDefault(price.getSymbol().toUpperCase(), 0.0);
-                        if (amount > 0) {
-                            // Convert BigDecimal to double for storage
-                            double priceValue = price.getCurrentPrice().doubleValue();
-                            PortfolioSnapshot.CoinSnapshot coinSnapshot = 
-                                new PortfolioSnapshot.CoinSnapshot(amount, priceValue);
-                            snapshotHoldings.put(price.getSymbol().toUpperCase(), coinSnapshot);
-                            totalValue.updateAndGet(current -> current + coinSnapshot.getValue());
-                        }
-                    });
+                        Map<String, PortfolioSnapshot.CoinSnapshot> snapshotHoldings = new HashMap<>();
+                        AtomicReference<Double> totalValue = new AtomicReference<>(0.0);
 
-                    // Handle any coins that didn't get prices (maintain last known price if possible)
-                    holdings.forEach((symbol, amount) -> {
-                        if (!snapshotHoldings.containsKey(symbol)) {
-                            // Try to get the last known price from previous snapshot
-                            PortfolioSnapshot lastSnapshot = getLatestSnapshot(portfolio.getUserId());
-                            if (lastSnapshot != null && 
-                                lastSnapshot.getHoldings() != null && 
-                                lastSnapshot.getHoldings().containsKey(symbol)) {
-                                PortfolioSnapshot.CoinSnapshot lastCoin = 
-                                    lastSnapshot.getHoldings().get(symbol);
-                                PortfolioSnapshot.CoinSnapshot newCoin = 
-                                    new PortfolioSnapshot.CoinSnapshot(amount, lastCoin.getPriceUsd());
-                                snapshotHoldings.put(symbol, newCoin);
-                                totalValue.updateAndGet(current -> current + newCoin.getValue());
+                        prices.forEach(price -> {
+                            double amount = holdings.getOrDefault(price.getSymbol().toUpperCase(), 0.0);
+                            if (amount > 0) {
+                                // Convert BigDecimal to double for storage
+                                double priceValue = price.getCurrentPrice().doubleValue();
+                                PortfolioSnapshot.CoinSnapshot coinSnapshot =
+                                    new PortfolioSnapshot.CoinSnapshot(amount, priceValue);
+                                snapshotHoldings.put(price.getSymbol().toUpperCase(), coinSnapshot);
+                                totalValue.updateAndGet(current -> current + coinSnapshot.getValue());
                             }
-                        }
-                    });
+                        });
 
-                    snapshot.setHoldings(snapshotHoldings);
-                    snapshot.setTotalValue(totalValue.get());
-                    snapshotRepository.save(snapshot);
+                        // Handle any coins that didn't get prices (maintain last known price if possible)
+                        holdings.forEach((symbol, amount) -> {
+                            if (!snapshotHoldings.containsKey(symbol)) {
+                                // Try to get the last known price from previous snapshot
+                                PortfolioSnapshot lastSnapshot = getLatestSnapshot(portfolio.getUserId());
+                                if (lastSnapshot != null &&
+                                    lastSnapshot.getHoldings() != null &&
+                                    lastSnapshot.getHoldings().containsKey(symbol)) {
+                                    PortfolioSnapshot.CoinSnapshot lastCoin =
+                                        lastSnapshot.getHoldings().get(symbol);
+                                    PortfolioSnapshot.CoinSnapshot newCoin =
+                                        new PortfolioSnapshot.CoinSnapshot(amount, lastCoin.getPriceUsd());
+                                    snapshotHoldings.put(symbol, newCoin);
+                                    totalValue.updateAndGet(current -> current + newCoin.getValue());
+                                }
+                            }
+                        });
+
+                        snapshot.setHoldings(snapshotHoldings);
+                        snapshot.setTotalValue(totalValue.get());
+
+                        // Log the snapshot before saving
+                        System.out.println("Creating snapshot for user " + portfolio.getUserId() +
+                                           " at " + Instant.now() +
+                                           " with total value: " + totalValue.get());
+
+                        snapshotRepository.save(snapshot);
+
+                        // Log after save to verify it's completed
+                        System.out.println("Saved snapshot for user " + portfolio.getUserId());
+                    } catch (Exception e) {
+                        // Log any errors in the subscription callback
+                        System.err.println("Error creating snapshot: " + e.getMessage());
+                        e.printStackTrace();
+                    }
+                }, error -> {
+                    // Handle errors from the reactive chain
+                    System.err.println("Error getting market data for snapshot: " + error.getMessage());
+                    error.printStackTrace();
                 });
         } catch (Exception e) {
             // Log error but don't throw to prevent disrupting the scheduler
+            System.err.println("Unexpected error in createSnapshot: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -110,4 +130,4 @@ public class PortfolioSnapshotService {
         List<PortfolioSnapshot> latest = snapshotRepository.findLatestByUserId(userId, PageRequest.of(0, 1));
         return latest.isEmpty() ? null : latest.get(0);
     }
-} 
+}
