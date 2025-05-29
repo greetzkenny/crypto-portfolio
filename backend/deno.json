@@ -1,0 +1,40 @@
+{
+  "tasks": {
+    "dev": "deno run --allow-net --allow-env --allow-read --watch src/main.ts",
+    "start": "deno run --allow-net --allow-env --allow-read src/main.ts",
+    "migrate": "deno run --allow-net --allow-env --allow-read ../database/migration.ts",
+    "test": "deno test --allow-net --allow-env --allow-read"
+  },
+  "imports": {
+    "@oak/oak": "https://deno.land/x/oak@v12.6.1/mod.ts",
+    "@std/dotenv": "https://deno.land/std@0.208.0/dotenv/mod.ts",
+    "@std/crypto": "https://deno.land/std@0.208.0/crypto/mod.ts",
+    "@std/encoding": "https://deno.land/std@0.208.0/encoding/mod.ts",
+    "postgres": "https://deno.land/x/postgres@v0.17.0/mod.ts",
+    "zod": "https://deno.land/x/zod@v3.22.4/mod.ts",
+    "bcrypt": "https://deno.land/x/bcrypt@v0.4.1/mod.ts",
+    "djwt": "https://deno.land/x/djwt@v3.0.1/mod.ts"
+  },
+  "compilerOptions": {
+    "allowJs": true,
+    "lib": ["deno.window"],
+    "strict": true
+  },
+  "fmt": {
+    "useTabs": false,
+    "lineWidth": 100,
+    "indentWidth": 2,
+    "semiColons": true,
+    "singleQuote": false,
+    "proseWrap": "preserve",
+    "include": ["src/", "../database/"],
+    "exclude": []
+  },
+  "lint": {
+    "include": ["src/", "../database/"],
+    "exclude": [],
+    "rules": {
+      "tags": ["recommended"]
+    }
+  }
+} 

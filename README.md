@@ -64,7 +64,7 @@ Create `src/main/resources/application.properties` with the following content:
 server.port=8090
 spring.data.mongodb.host=localhost
 spring.data.mongodb.port=27017
-spring.data.mongodb.database=cryptoportfolio
+spring.data.mongodb.database=portfolio-tracker
 jwt.secret=your-secret-key
 jwt.expiration=86400000
 ```

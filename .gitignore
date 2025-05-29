@@ -37,3 +37,12 @@ application.properties
 *.log
 /logs/
 .env 
+
+### node modules ###
+node_modules/
+
+### deno cache ###
+.deno/
+deno.lock
+
+
