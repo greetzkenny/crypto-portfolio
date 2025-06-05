@@ -1,11 +1,8 @@
 import { Application } from "@oak/oak";
 import { loadConfig } from "./config/app.ts";
 import { createDatabasePool } from "./config/database.ts";
-import { UserRepository } from "./repositories/UserRepository.ts";
 import { PortfolioRepository } from "./repositories/PortfolioRepository.ts";
-import { AuthService } from "./services/AuthService.ts";
 import { CoinGeckoService } from "./services/CoinGeckoService.ts";
-import { AuthController } from "./controllers/AuthController.ts";
 import { PortfolioController } from "./controllers/PortfolioController.ts";
 import { CryptoController } from "./controllers/CryptoController.ts";
 import { createRoutes } from "./routes/index.ts";
@@ -24,17 +21,14 @@ async function main() {
     console.log("🗄️  Database connection pool created");
 
     // Initialize repositories
-    const userRepository = new UserRepository();
     const portfolioRepository = new PortfolioRepository();
     console.log("📦 Repositories initialized");
 
     // Initialize services
-    const authService = new AuthService(userRepository, portfolioRepository, config.jwt.secret, config.jwt.expiresIn);
     const coinGeckoService = new CoinGeckoService(config.coinGeckoApiUrl);
     console.log("🔧 Services initialized");
 
     // Initialize controllers
-    const authController = new AuthController(authService);
     const portfolioController = new PortfolioController(portfolioRepository, coinGeckoService);
     const cryptoController = new CryptoController(coinGeckoService);
     console.log("🎮 Controllers initialized");
@@ -51,15 +45,6 @@ async function main() {
         
         // Handle specific error types
         if (error instanceof Error) {
-          if (error.message.includes("bcrypt") || error.message.includes("salt")) {
-            ctx.response.status = 500;
-            ctx.response.body = { 
-              error: "Authentication service error",
-              message: "Please try again later"
-            };
-            return;
-          }
-          
           if (error.message.includes("database") || error.message.includes("PostgreSQL")) {
             ctx.response.status = 500;
             ctx.response.body = { 
@@ -91,7 +76,7 @@ async function main() {
     app.use(createCorsMiddleware(config.cors.origin));
 
     // Routes
-    const router = createRoutes(authController, portfolioController, cryptoController, authService);
+    const router = createRoutes(portfolioController, cryptoController);
     app.use(router.routes());
     app.use(router.allowedMethods());
 

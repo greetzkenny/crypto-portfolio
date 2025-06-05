@@ -1,6 +1,5 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useAuthStore } from './stores/authStore';
 import Login from './components/Login';
 import Register from './components/Register';
 import Dashboard from './components/Dashboard';
@@ -8,45 +7,23 @@ import Portfolio from './components/Portfolio';
 import Navbar from './components/Navbar';
 
 function App() {
-  const { isAuthenticated } = useAuthStore();
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {isAuthenticated && <Navbar />}
+      <Navbar />
       
-      <main className={isAuthenticated ? "pt-16" : ""}>
+      <main className="pt-16">
         <Routes>
-          {/* Public routes */}
-          <Route 
-            path="/login" 
-            element={!isAuthenticated ? <Login /> : <Navigate to="/dashboard" replace />} 
-          />
-          <Route 
-            path="/register" 
-            element={!isAuthenticated ? <Register /> : <Navigate to="/dashboard" replace />} 
-          />
+          {/* All routes are now public */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/portfolio" element={<Portfolio />} />
           
-          {/* Protected routes */}
-          <Route 
-            path="/dashboard" 
-            element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" replace />} 
-          />
-          <Route 
-            path="/portfolio" 
-            element={isAuthenticated ? <Portfolio /> : <Navigate to="/login" replace />} 
-          />
-          
-          {/* Default redirect */}
-          <Route 
-            path="/" 
-            element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />} 
-          />
+          {/* Default redirect to dashboard */}
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
           
           {/* 404 fallback */}
-          <Route 
-            path="*" 
-            element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />} 
-          />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </main>
     </div>

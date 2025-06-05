@@ -1,26 +1,22 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuthStore } from '../stores/authStore';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuthStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
-    try {
-      await login({ username, password });
-    } catch (err: any) {
-      setError(err.message || 'Login failed');
-    } finally {
+    // Authentication removed - form is now non-functional
+    setTimeout(() => {
+      setError('Authentication has been disabled');
       setIsLoading(false);
-    }
+    }, 1000);
   };
 
   return (

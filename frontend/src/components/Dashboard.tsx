@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useAuthStore } from '../stores/authStore';
 import apiService from '../lib/api';
 import { CoinPrice, PortfolioSummary } from '../types';
 
 const Dashboard: React.FC = () => {
-  const { user, isAuthenticated } = useAuthStore();
   const [topCoins, setTopCoins] = useState<CoinPrice[]>([]);
   const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -20,15 +18,13 @@ const Dashboard: React.FC = () => {
         const coinsData = await apiService.getTopCoins(10);
         setTopCoins(coinsData);
 
-        // Fetch portfolio data if authenticated
-        if (isAuthenticated && user) {
-          try {
-            const portfolioData = await apiService.getPortfolioSummary();
-            setPortfolio(portfolioData);
-          } catch (portfolioError: any) {
-            console.log('Portfolio data not available:', portfolioError.message);
-            // Don't show error for missing portfolio data
-          }
+        // Fetch portfolio data (now public)
+        try {
+          const portfolioData = await apiService.getPortfolioSummary();
+          setPortfolio(portfolioData);
+        } catch (portfolioError: any) {
+          console.log('Portfolio data not available:', portfolioError.message);
+          // Don't show error for missing portfolio data
         }
       } catch (err: any) {
         console.error('Dashboard data fetch error:', err);
@@ -39,7 +35,7 @@ const Dashboard: React.FC = () => {
     };
 
     fetchDashboardData();
-  }, [isAuthenticated, user]);
+  }, []);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -92,7 +88,7 @@ const Dashboard: React.FC = () => {
         {/* Welcome Section */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            {isAuthenticated ? `Welcome back, ${user?.username}!` : 'Crypto Portfolio Tracker'}
+            Crypto Portfolio Tracker
           </h1>
           <p className="mt-2 text-gray-600 dark:text-gray-400">
             Track cryptocurrency prices and manage your portfolio
@@ -100,7 +96,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Portfolio Summary */}
-        {isAuthenticated && portfolio && (
+        {portfolio && (
           <div className="mb-8 bg-white dark:bg-gray-800 shadow rounded-lg p-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
               Portfolio Summary

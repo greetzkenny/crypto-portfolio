@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuthStore } from '../stores/authStore';
 
 const Register: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -8,7 +7,6 @@ const Register: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { register } = useAuthStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,13 +24,11 @@ const Register: React.FC = () => {
 
     setIsLoading(true);
 
-    try {
-      await register({ username, password });
-    } catch (err: any) {
-      setError(err.message || 'Registration failed');
-    } finally {
+    // Authentication removed - form is now non-functional
+    setTimeout(() => {
+      setError('Authentication has been disabled');
       setIsLoading(false);
-    }
+    }, 1000);
   };
 
   return (

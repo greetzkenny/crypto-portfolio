@@ -10,28 +10,6 @@ export interface CoinPrice {
   total_volume?: number;
 }
 
-// User and Auth Types
-export interface User {
-  id: string;
-  username: string;
-}
-
-export interface AuthResponse {
-  userId: string;
-  username: string;
-  token: string;
-}
-
-export interface LoginRequest {
-  username: string;
-  password: string;
-}
-
-export interface RegisterRequest {
-  username: string;
-  password: string;
-}
-
 // Portfolio Types
 export interface Portfolio {
   id: string;
@@ -72,16 +50,6 @@ export interface HoldingRequest {
 export interface ThemeState {
   isDark: boolean;
   toggle: () => void;
-}
-
-export interface AuthState {
-  user: User | null;
-  token: string | null;
-  isAuthenticated: boolean;
-  login: (credentials: LoginRequest) => Promise<void>;
-  register: (credentials: RegisterRequest) => Promise<void>;
-  logout: () => void;
-  setAuth: (user: User, token: string) => void;
 }
 
 export interface PortfolioState {

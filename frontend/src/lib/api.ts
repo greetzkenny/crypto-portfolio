@@ -1,8 +1,5 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { 
-  AuthResponse, 
-  LoginRequest, 
-  RegisterRequest, 
   CoinPrice, 
   PortfolioSummary,
   HoldingRequest 
@@ -20,55 +17,13 @@ class ApiService {
       },
     });
 
-    // Request interceptor to add auth token
-    this.api.interceptors.request.use(
-      (config) => {
-        const token = localStorage.getItem('auth_token');
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-      },
-      (error) => Promise.reject(error)
-    );
-
     // Response interceptor for error handling
     this.api.interceptors.response.use(
       (response) => response,
       (error) => {
-        if (error.response?.status === 401) {
-          // Clear auth data on 401
-          localStorage.removeItem('auth_token');
-          localStorage.removeItem('auth_user');
-          window.location.href = '/login';
-        }
         return Promise.reject(error);
       }
     );
-  }
-
-  // Auth endpoints
-  async login(credentials: LoginRequest): Promise<AuthResponse> {
-    const response: AxiosResponse<AuthResponse> = await this.api.post('/auth/login', credentials);
-    return response.data;
-  }
-
-  async register(credentials: RegisterRequest): Promise<AuthResponse> {
-    const response: AxiosResponse<AuthResponse> = await this.api.post('/auth/register', credentials);
-    return response.data;
-  }
-
-  async verifyToken(): Promise<{ valid: boolean; userId: string; username: string }> {
-    const response = await this.api.post('/auth/verify');
-    return response.data;
-  }
-
-  async changePassword(currentPassword: string, newPassword: string): Promise<{ message: string }> {
-    const response = await this.api.post('/auth/change-password', {
-      currentPassword,
-      newPassword,
-    });
-    return response.data;
   }
 
   // Portfolio endpoints

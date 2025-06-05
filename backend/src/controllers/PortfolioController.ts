@@ -14,12 +14,8 @@ export class PortfolioController {
 
   async getPortfolio(ctx: Context) {
     try {
-      const userId = ctx.params.userId || ctx.state.userId;
-      if (!userId) {
-        ctx.response.status = 400;
-        ctx.response.body = { error: "User ID is required" };
-        return;
-      }
+      // Use a default user ID since authentication is removed
+      const userId = "default-user";
 
       const portfolio = await this.portfolioRepository.getOrCreatePortfolio(userId);
       const holdings = await this.portfolioRepository.getHoldingsByPortfolioId(portfolio.id);
@@ -38,12 +34,8 @@ export class PortfolioController {
 
   async getPortfolioWithPrices(ctx: Context) {
     try {
-      const userId = ctx.params.userId || ctx.state.userId;
-      if (!userId) {
-        ctx.response.status = 400;
-        ctx.response.body = { error: "User ID is required" };
-        return;
-      }
+      // Use a default user ID since authentication is removed
+      const userId = "default-user";
 
       const currency = ctx.request.url.searchParams.get("currency") || "usd";
       
@@ -105,12 +97,8 @@ export class PortfolioController {
 
   async addHolding(ctx: Context) {
     try {
-      const userId = ctx.params.userId || ctx.state.userId;
-      if (!userId) {
-        ctx.response.status = 400;
-        ctx.response.body = { error: "User ID is required" };
-        return;
-      }
+      // Use a default user ID since authentication is removed
+      const userId = "default-user";
 
       const body = await ctx.request.body({ type: "json" }).value;
       const request: HoldingRequest = {
@@ -149,12 +137,8 @@ export class PortfolioController {
 
   async removeHolding(ctx: Context) {
     try {
-      const userId = ctx.params.userId || ctx.state.userId;
-      if (!userId) {
-        ctx.response.status = 400;
-        ctx.response.body = { error: "User ID is required" };
-        return;
-      }
+      // Use a default user ID since authentication is removed
+      const userId = "default-user";
 
       const body = await ctx.request.body({ type: "json" }).value;
       const request: HoldingRequest = {
@@ -193,12 +177,8 @@ export class PortfolioController {
 
   async updateHolding(ctx: Context) {
     try {
-      const userId = ctx.params.userId || ctx.state.userId;
-      if (!userId) {
-        ctx.response.status = 400;
-        ctx.response.body = { error: "User ID is required" };
-        return;
-      }
+      // Use a default user ID since authentication is removed
+      const userId = "default-user";
 
       const body = await ctx.request.body({ type: "json" }).value;
       const request: HoldingRequest = {

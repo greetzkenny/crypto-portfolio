@@ -1,9 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useAuthStore } from '../stores/authStore';
 
 const Navbar: React.FC = () => {
-  const { user, logout } = useAuthStore();
   const location = useLocation();
 
   const isActive = (path: string) => location.pathname === path;
@@ -42,15 +40,18 @@ const Navbar: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center space-x-4">
-            <span className="text-gray-700 dark:text-gray-300">
-              Welcome, {user?.username}
-            </span>
-            <button
-              onClick={logout}
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200"
+            <Link
+              to="/login"
+              className="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium"
             >
-              Logout
-            </button>
+              Login
+            </Link>
+            <Link
+              to="/register"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200"
+            >
+              Register
+            </Link>
           </div>
         </div>
       </div>
